@@ -27,6 +27,7 @@ jobs:
       GOOS: ${{ matrix.os }}
       GOARCH: ${{ matrix.arch }}
       FILEEXTENSION: ${{ matrix.file-extension }}
+      FILENAME: m3u8-downloader-${GOOS}-${GOARCH}${FILEEXTENSION}
     steps:
     - name: Checkout Git repo
       uses: actions/checkout@v4
@@ -44,11 +45,11 @@ jobs:
 
     - name: Build binary
       run: |
-        GOOS=${GOOS} GOARCH=${GOARCH} go build  -o ./Releases/m3u8-${GOOS}-${GOARCH}${FILEEXTENSION} m3u8-downloader.go
+        GOOS=${GOOS} GOARCH=${GOARCH} go build  -o ./Releases/${FILENAME} m3u8-downloader.go
 
     - uses: actions/upload-artifact@v4
       with:
-        name: my-artifact
+        name: ${FILENAME}
         path: ./Releases/*
 
         
