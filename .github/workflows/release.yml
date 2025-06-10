@@ -46,19 +46,9 @@ jobs:
       run: |
         GOOS=${GOOS} GOARCH=${GOARCH} go build  -o ./Releases/m3u8-${GOOS}-${GOARCH}${FILEEXTENSION} m3u8-downloader.go
 
-
-    - name: Upload Files
-      uses: pontago/lftp-deploy-action@master
+    - uses: actions/upload-artifact@v4
       with:
-        protocol: ftp
-        host: ${{ secrets.FTP_HOST }}
-        username: ${{ secrets.FTP_USER }}
-        password: ${{ secrets.FTP_PSWD }}
-        local_dir: ./Releases/
-        remote_dir: /
-        debug: true
-        script: |
-          ls
-
+        name: my-artifact
+        path: ./Releases/*
 
         
