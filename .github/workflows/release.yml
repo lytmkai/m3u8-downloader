@@ -52,8 +52,8 @@ jobs:
       with:
         protocol: ftp
         host: ${{ secrets.FTP_HOST }}
-        username: ${{ secrets.FTP_PSWD }}
-        password: ${{ secrets.FTP_USER }}
+        username: ${{ secrets.FTP_USER }}
+        password: ${{ secrets.FTP_PSWD }}
         local_dir: ./Releases/
         remote_dir: /
         debug: true
