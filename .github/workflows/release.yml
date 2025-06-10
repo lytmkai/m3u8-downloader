@@ -27,7 +27,7 @@ jobs:
       GOOS: ${{ matrix.os }}
       GOARCH: ${{ matrix.arch }}
       FILEEXTENSION: ${{ matrix.file-extension }}
-      FILENAME: m3u8-downloader-${GOOS}-${GOARCH}${FILEEXTENSION}
+      FILENAME: m3u8-downloader-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.file-extension }}
     steps:
     - name: Checkout Git repo
       uses: actions/checkout@v4
