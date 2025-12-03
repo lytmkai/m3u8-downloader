@@ -302,6 +302,9 @@ func downloader(tsList []TsInfo, maxGoroutines int, downloadDir string, key stri
 	var wg sync.WaitGroup
 	limiter := make(chan struct{}, maxGoroutines) //chan struct 内存占用 0 bool 占用 1
 	tsLen := len(tsList)
+
+	fmt.Println("[downloader]待下载 ts 文件数量:", tsLen)
+	
 	downloadCount := 0
 	for _, ts := range tsList {
 		wg.Add(1)
