@@ -171,6 +171,9 @@ func getM3u8Key(host, html string) (key string) {
 	lines := strings.Split(html, "\n")
 	key = ""
 	for _, line := range lines {
+
+		line = strings.TrimSpace(line)
+		
 		if strings.Contains(line, "#EXT-X-KEY") {
 			if !strings.Contains(line, "URI") {
 				continue
@@ -199,9 +202,13 @@ func getTsList(host, body string) (tsList []TsInfo) {
 	index := 0
 	var ts TsInfo
 	for _, line := range lines {
+		
 		if !strings.HasPrefix(line, "#") && line != "" {
 			//有可能出现的二级嵌套格式的m3u8,请自行转换！
 			index++
+			
+			line = strings.TrimSpace(line)
+			
 			if strings.HasPrefix(line, "http") {
 				ts = TsInfo{
 					Name: fmt.Sprintf(TS_NAME_TEMPLATE, index),
