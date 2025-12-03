@@ -46,7 +46,7 @@ var (
 	rFlag   = flag.Bool("r", true, "autoClear:是否自动清除ts文件")
 	sFlag   = flag.Int("s", 0, "InsecureSkipVerify:是否允许不安全的请求(默认0)")
 	spFlag  = flag.String("sp", "", "savePath:文件保存的绝对路径(默认为当前路径,建议默认值)")
-	clFlag  = flag.String("checklen", true, "开启媒体文件 大小 检查(默认开启)")
+	clFlag  = flag.Bool("checklen", true, "开启媒体文件 大小 检查(默认开启)")
 
 	logger *log.Logger
 	ro     = &grequests.RequestOptions{
