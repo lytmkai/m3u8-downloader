@@ -235,7 +235,7 @@ func downloadTsFile(ts TsInfo, download_dir, key string, retries int, checkLen b
 	defer func() {
 		if r := recover(); r != nil {
 			//fmt.Println("网络不稳定，正在进行断点持续下载")
-			downloadTsFile(ts, download_dir, key, retries-1)
+			downloadTsFile(ts, download_dir, key, retries-1, checkLen)
 		}
 	}()
 	curr_path_file := fmt.Sprintf("%s/%s", download_dir, ts.Name)
@@ -246,7 +246,7 @@ func downloadTsFile(ts TsInfo, download_dir, key string, retries int, checkLen b
 	res, err := grequests.Get(ts.Url, ro)
 	if err != nil || !res.Ok {
 		if retries > 0 {
-			downloadTsFile(ts, download_dir, key, retries-1)
+			downloadTsFile(ts, download_dir, key, retries-1, checkLen)
 			return
 		} else {
 			//logger.Printf("[warn] File :%s", ts.Url)
@@ -267,7 +267,7 @@ func downloadTsFile(ts TsInfo, download_dir, key string, retries int, checkLen b
 	if checkLen {
 		if len(origData) == 0 || (contentLen > 0 && len(origData) < contentLen) || res.Error != nil {
 			logger.Println("[warn] File: " + ts.Name + "res origData invalid or err：", res.Error)
-			downloadTsFile(ts, download_dir, key, retries-1)
+			downloadTsFile(ts, download_dir, key, retries-1, checkLen)
 			return
 		}
 	}
@@ -278,7 +278,7 @@ func downloadTsFile(ts TsInfo, download_dir, key string, retries int, checkLen b
 		//解密 ts 文件，算法：aes 128 cbc pack5
 		origData, err = AesDecrypt(origData, []byte(key))
 		if err != nil {
-			downloadTsFile(ts, download_dir, key, retries-1)
+			downloadTsFile(ts, download_dir, key, retries-1, checkLen)
 			return
 		}
 	}
