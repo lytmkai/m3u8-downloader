@@ -46,6 +46,7 @@ var (
 	rFlag   = flag.Bool("r", true, "autoClear:是否自动清除ts文件")
 	sFlag   = flag.Int("s", 0, "InsecureSkipVerify:是否允许不安全的请求(默认0)")
 	spFlag  = flag.String("sp", "", "savePath:文件保存的绝对路径(默认为当前路径,建议默认值)")
+	clFlag  = flag.String("checklen", true, "开启媒体文件 大小 检查(默认开启)")
 
 	logger *log.Logger
 	ro     = &grequests.RequestOptions{
@@ -90,6 +91,7 @@ func Run() {
 	cookie := *cFlag
 	insecure := *sFlag
 	savePath := *spFlag
+	checkLen := *clFlag
 
 	ro.Headers["Referer"] = getHost(m3u8Url, "v2")
 	if insecure != 0 {
@@ -126,7 +128,7 @@ func Run() {
 	fmt.Println("待下载 ts 文件数量:", len(ts_list))
 
 	// 3、下载ts文件到download_dir
-	downloader(ts_list, maxGoroutines, download_dir, ts_key)
+	downloader(ts_list, maxGoroutines, download_dir, ts_key, checkLen)
 	if ok := checkTsDownDir(download_dir); !ok {
 		fmt.Printf("\n[Failed] 请检查url地址有效性 \n")
 		return
@@ -226,7 +228,7 @@ func getFromFile() string {
 
 // 下载ts文件
 // @modify: 2020-08-13 修复ts格式SyncByte合并不能播放问题
-func downloadTsFile(ts TsInfo, download_dir, key string, retries int) {
+func downloadTsFile(ts TsInfo, download_dir, key string, retries int, checkLen bool) {
 	if retries <= 0 {
 		return
 	}
@@ -251,7 +253,8 @@ func downloadTsFile(ts TsInfo, download_dir, key string, retries int) {
 			return
 		}
 	}
-	// 校验长度是否合法
+	
+	
 	var origData []byte
 	origData = res.Bytes()
 	contentLen := 0
@@ -259,11 +262,17 @@ func downloadTsFile(ts TsInfo, download_dir, key string, retries int) {
 	if contentLenStr != "" {
 		contentLen, _ = strconv.Atoi(contentLenStr)
 	}
-	if len(origData) == 0 || (contentLen > 0 && len(origData) < contentLen) || res.Error != nil {
-		//logger.Println("[warn] File: " + ts.Name + "res origData invalid or err：", res.Error)
-		downloadTsFile(ts, download_dir, key, retries-1)
-		return
+
+	// 校验长度是否合法
+	if checkLen {
+		if len(origData) == 0 || (contentLen > 0 && len(origData) < contentLen) || res.Error != nil {
+			logger.Println("[warn] File: " + ts.Name + "res origData invalid or err：", res.Error)
+			downloadTsFile(ts, download_dir, key, retries-1)
+			return
+		}
 	}
+	
+	
 	// 解密出视频 ts 源文件
 	if key != "" {
 		//解密 ts 文件，算法：aes 128 cbc pack5
@@ -288,7 +297,7 @@ func downloadTsFile(ts TsInfo, download_dir, key string, retries int) {
 }
 
 // downloader m3u8 下载器
-func downloader(tsList []TsInfo, maxGoroutines int, downloadDir string, key string) {
+func downloader(tsList []TsInfo, maxGoroutines int, downloadDir string, key string, checkLen bool) {
 	retry := 5 //单个ts 下载重试次数
 	var wg sync.WaitGroup
 	limiter := make(chan struct{}, maxGoroutines) //chan struct 内存占用 0 bool 占用 1
@@ -302,7 +311,7 @@ func downloader(tsList []TsInfo, maxGoroutines int, downloadDir string, key stri
 				wg.Done()
 				<-limiter
 			}()
-			downloadTsFile(ts, downloadDir, key, retryies)
+			downloadTsFile(ts, downloadDir, key, retryies, checkLen)
 			downloadCount++
 			DrawProgressBar("Downloading", float32(downloadCount)/float32(tsLen), PROGRESS_WIDTH, ts.Name)
 			return
