@@ -234,13 +234,13 @@ func downloadTsFile(ts TsInfo, download_dir, key string, retries int, checkLen b
 	}
 	defer func() {
 		if r := recover(); r != nil {
-			//fmt.Println("网络不稳定，正在进行断点持续下载")
+			fmt.Println("网络不稳定，正在进行断点持续下载")
 			downloadTsFile(ts, download_dir, key, retries-1, checkLen)
 		}
 	}()
 	curr_path_file := fmt.Sprintf("%s/%s", download_dir, ts.Name)
 	if isExist, _ := pathExists(curr_path_file); isExist {
-		//logger.Println("[warn] File: " + ts.Name + "already exist")
+		logger.Println("[warn] File: " + ts.Name + "already exist")
 		return
 	}
 	res, err := grequests.Get(ts.Url, ro)
@@ -249,7 +249,7 @@ func downloadTsFile(ts TsInfo, download_dir, key string, retries int, checkLen b
 			downloadTsFile(ts, download_dir, key, retries-1, checkLen)
 			return
 		} else {
-			//logger.Printf("[warn] File :%s", ts.Url)
+			logger.Printf("[warn] File :%s", ts.Url)
 			return
 		}
 	}
