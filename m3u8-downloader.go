@@ -226,35 +226,38 @@ func getFromFile() string {
 	return string(data)
 }
 
-// 下载ts文件
-// @modify: 2020-08-13 修复ts格式SyncByte合并不能播放问题
+
 func downloadTsFile(ts TsInfo, download_dir, key string, retries int, checkLen bool) {
 	if retries <= 0 {
+		logger.Printf("[ERROR] Max retries exceeded for: %s", ts.Url)
 		return
 	}
+
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Println("网络不稳定，正在进行断点持续下载")
+			logger.Printf("[WARN] Panic during download (retrying): %v for %s", r, ts.Url)
 			downloadTsFile(ts, download_dir, key, retries-1, checkLen)
 		}
 	}()
+
 	curr_path_file := fmt.Sprintf("%s/%s", download_dir, ts.Name)
 	if isExist, _ := pathExists(curr_path_file); isExist {
-		logger.Println("[warn] File: " + ts.Name + "already exist")
+		logger.Printf("[WARN] File already exists, skipping: %s", curr_path_file)
 		return
 	}
+
+	logger.Printf("[INFO] Downloading [%s] -> %s", ts.Url, curr_path_file)
+
 	res, err := grequests.Get(ts.Url, ro)
 	if err != nil || !res.Ok {
+		logger.Printf("[ERROR] Request failed for %s: err=%v, ok=%v", ts.Url, err, res.Ok)
 		if retries > 0 {
+			logger.Printf("[INFO] Retrying... (%d left)", retries-1)
 			downloadTsFile(ts, download_dir, key, retries-1, checkLen)
-			return
-		} else {
-			logger.Printf("[warn] File :%s", ts.Url)
-			return
 		}
+		return
 	}
-	
-	
+
 	var origData []byte
 	origData = res.Bytes()
 	contentLen := 0
@@ -266,34 +269,46 @@ func downloadTsFile(ts TsInfo, download_dir, key string, retries int, checkLen b
 	// 校验长度是否合法
 	if checkLen {
 		if len(origData) == 0 || (contentLen > 0 && len(origData) < contentLen) || res.Error != nil {
-			logger.Println("[warn] File: " + ts.Name + "res origData invalid or err：", res.Error)
+			logger.Printf("[WARN] Invalid response data for %s: len=%d, content-length=%d, error=%v",
+				ts.Url, len(origData), contentLen, res.Error)
 			downloadTsFile(ts, download_dir, key, retries-1, checkLen)
 			return
 		}
 	}
-	
-	
+
 	// 解密出视频 ts 源文件
 	if key != "" {
-		//解密 ts 文件，算法：aes 128 cbc pack5
+		logger.Printf("[DEBUG] Decrypting segment: %s", ts.Name)
+		var err error
 		origData, err = AesDecrypt(origData, []byte(key))
 		if err != nil {
+			logger.Printf("[ERROR] Decryption failed for %s: %v", ts.Name, err)
 			downloadTsFile(ts, download_dir, key, retries-1, checkLen)
 			return
 		}
 	}
-	// https://en.wikipedia.org/wiki/MPEG_transport_stream
-	// Some TS files do not start with SyncByte 0x47, they can not be played after merging,
-	// Need to remove the bytes before the SyncByte 0x47(71).
-	syncByte := uint8(71) //0x47
+
+	// SyncByte 修复
+	syncByte := uint8(71) // 0x47
 	bLen := len(origData)
+	origStart := 0
 	for j := 0; j < bLen; j++ {
 		if origData[j] == syncByte {
-			origData = origData[j:]
+			origStart = j
 			break
 		}
 	}
-	ioutil.WriteFile(curr_path_file, origData, 0666)
+	if origStart > 0 {
+		logger.Printf("[DEBUG] Trimmed %d bytes before SyncByte in %s", origStart, ts.Name)
+	}
+	origData = origData[origStart:]
+
+	err = ioutil.WriteFile(curr_path_file, origData, 0666)
+	if err != nil {
+		logger.Printf("[ERROR] Failed to write file %s: %v", curr_path_file, err)
+	} else {
+		logger.Printf("[DOWNLOADED] Saved %s (%d bytes)", ts.Name, len(origData))
+	}
 }
 
 // downloader m3u8 下载器
