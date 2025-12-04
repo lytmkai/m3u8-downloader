@@ -11,9 +11,11 @@ import (
 	"crypto/cipher"
 	"flag"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/url"
+	"net/http"
 	"os"
 	"os/exec"
 	"path"
@@ -24,7 +26,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/levigross/grequests"
 )
 
 const (
@@ -320,7 +321,7 @@ func downloadTsFile(ts TsInfo, download_dir, key string, retries int, checkLen b
 
 // downloader m3u8 下载器
 func downloader(tsList []TsInfo, maxGoroutines int, downloadDir string, key string, checkLen bool) {
-	retry := 5 //单个ts 下载重试次数
+	retry := 500 //单个ts 下载重试次数
 	var wg sync.WaitGroup
 	limiter := make(chan struct{}, maxGoroutines) //chan struct 内存占用 0 bool 占用 1
 	tsLen := len(tsList)
