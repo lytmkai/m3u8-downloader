@@ -26,7 +26,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/levigross/grequests/v2"
+	"github.com/levigross/grequests"
 )
 
 const (
