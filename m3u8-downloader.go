@@ -253,7 +253,7 @@ func downloadTsFile(ts TsInfo, download_dir, key string, retries int, checkLen b
 		return
 	}
 
-	logger.Printf("[INFO] Downloading [%s] -> %s", ts.Url, curr_path_file)
+	logger.Printf("\n[INFO] Downloading [%s] -> %s", ts.Url, curr_path_file)
 
 	res, err := grequests.Get(ts.Url, ro)
 	if err != nil || !res.Ok {
