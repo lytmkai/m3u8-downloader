@@ -7,8 +7,10 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/tls"
 	"flag"
 	"fmt"
 	"io"
@@ -88,7 +90,6 @@ func Run() {
 	movieName := *oFlag
 	autoClearFlag := *rFlag
 	cookie := *cFlag
-	insecure := *sFlag
 	savePath := *spFlag
 	checkLen := *clFlag
 
@@ -148,7 +149,7 @@ func requestGet(url string) (*http.Response, error) {
 	
 	// 创建带超时的请求
 	req, err := http.NewRequestWithContext(
-		http.Background(), // 或者传入一个带有取消信号的 context
+		context.Background(), // 或者传入一个带有取消信号的 context
 		http.MethodGet,
 		url,
 		nil, // GET 请求通常没有 body
@@ -206,11 +207,7 @@ func getHost(Url, ht string) (host string) {
 // 获取m3u8地址的内容体
 func getM3u8Body(Url string) string {
 
-	resp, err := requestGet(Url)
-	if err != nil {
-		fmt.Printf("Error making request: %v\n", err)
-		return
-	}
+	resp := requestGet(Url)
 	defer resp.Body.Close()
 
 	data, err := io.ReadAll(resp.Body)
@@ -241,8 +238,7 @@ func getM3u8Key(host, html string) (key string) {
 
 
 
-			resp, err := requestGet(key_url)
-			checkErr(err)
+			resp := requestGet(key_url)
 			defer resp.Body.Close()
 			
 			if resp.StatusCode == 200 {
@@ -316,16 +312,7 @@ func downloadTsFile(ts TsInfo, download_dir, key string, retries int, checkLen b
 		return
 	}
 
-	resp, err := requestGet(ts.Url)
-	if err != nil {
-		fmt.Printf("[ERROR] Request failed for %s: %v\n", ts.Url, err)
-		if retries > 0 {
-			fmt.Printf("[INFO] Retrying... (%d left)\n", retries-1)
-			time.Sleep(time.Second) // 稍微延迟后重试
-			downloadTsFile(ts, download_dir, key, retries-1, checkLen)
-		}
-		return
-	}
+	resp := requestGet(ts.Url)
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
