@@ -50,7 +50,14 @@ var (
 	clFlag  = flag.Bool("checklen", true, "开启媒体文件 大小 检查(默认开启)")
 
 	logger *log.Logger
-	
+
+	defaultHeaders = map[string]string{
+		"User-Agent":      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.88 Safari/537.36",
+		"Connection":      "keep-alive",
+		"Accept":          "*/*",
+		"Accept-Encoding": "*", // 注意：服务端可能压缩响应，需要正确处理
+		"Accept-Language": "zh-CN,zh;q=0.9, en;q=0.8, de;q=0.7, *;q=0.5",
+	}
 )
 
 
@@ -85,14 +92,12 @@ func Run() {
 	savePath := *spFlag
 	checkLen := *clFlag
 
-	ro.Headers["Referer"] = getHost(m3u8Url, "v2")
-	if insecure != 0 {
-		ro.InsecureSkipVerify = true
-	}
-	// http 自定义 cookie
+	defaultHeaders["Referer"] = getHost(m3u8Url, "v2")
 	if cookie != "" {
-		ro.Headers["Cookie"] = cookie
+		defaultHeaders["Cookie"] = cookie
 	}
+
+	
 	if !strings.HasPrefix(m3u8Url, "http") || m3u8Url == "" {
 		flag.Usage()
 		return
@@ -138,6 +143,9 @@ func Run() {
 }
 
 func requestGet(url string) (*http.Response, error) {
+
+	insecure := *sFlag
+	
 	// 创建带超时的请求
 	req, err := http.NewRequestWithContext(
 		http.Background(), // 或者传入一个带有取消信号的 context
@@ -149,18 +157,27 @@ func requestGet(url string) (*http.Response, error) {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	// 设置 User-Agent
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.3945.88 Safari/537.36")
+	// 设置 Headers
+	for k, v := range defaultHeaders {
+		req.Header.Set(k, v)
+	}
 
-	// 设置其他 Headers
-	req.Header.Set("Connection", "keep-alive")
-	req.Header.Set("Accept", "*/*")
-	req.Header.Set("Accept-Encoding", "*") // 注意：服务端可能压缩响应，需要正确处理
-	req.Header.Set("Accept-Language", "zh-CN,zh;q=0.9, en;q=0.8, de;q=0.7, *;q=0.5")
 
+	insecureSkipVerify := false
+	if insecure != 0 {
+		insecureSkipVerify = true
+	}
+	
+	transport := &http.Transport{
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: insecureSkipVerify, // 设置跳过证书验证
+		},
+	}
+	
 	// 创建 HTTP 客户端
 	client := &http.Client{
-		Timeout: HEAD_TIMEOUT,
+		Transport: transport,
+		Timeout:   HEAD_TIMEOUT,
 	}
 
 	// 执行请求
