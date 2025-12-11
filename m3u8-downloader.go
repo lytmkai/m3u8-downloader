@@ -314,7 +314,7 @@ func downloadTsFile(ts TsInfo, download_dir, key string, retries int, checkLen b
 	if err != nil {
 		logger.Printf("[ERROR] Failed to write file %s: %v", curr_path_file, err)
 	} else {
-		// fmt.Printf("\tSaved %s (%d bytes)       ", ts.Name, len(origData))
+		fmt.Printf("\tSaved %s (%d bytes)       ", ts.Name, len(origData))
 	}
 }
 
@@ -338,7 +338,7 @@ func downloader(tsList []TsInfo, maxGoroutines int, downloadDir string, key stri
 			}()
 			downloadTsFile(ts, downloadDir, key, retryies, checkLen)
 			downloadCount++
-			DrawProgressBar("Downloading", float32(downloadCount)/float32(tsLen), PROGRESS_WIDTH, ts.Name)
+			DrawProgressBar("Downloading", float32(downloadCount), float32(tsLen), PROGRESS_WIDTH, ts.Name)
 			return
 		}(ts, downloadDir, key, retry)
 	}
@@ -381,10 +381,13 @@ func mergeTs(downloadDir string) string {
 }
 
 // 进度条
-func DrawProgressBar(prefix string, proportion float32, width int, suffix ...string) {
+func DrawProgressBar(prefix string, proportion float32, total float32, width int, suffix ...string) {
+
+	percent := proportion / total
+	
 	pos := int(proportion * float32(width))
-	s := fmt.Sprintf("[%s] %s%*s %6.2f%% %-10s          ",
-		prefix, strings.Repeat("■", pos), width-pos, "", proportion*100, strings.Join(suffix, ""))
+	s := fmt.Sprintf("[%s] %s%*s %6.2f%%  %s/%s   %-15s          ",
+		prefix, strings.Repeat("■", pos), width-pos, "", percent*100, proportion, total, strings.Join(suffix, ""))
 	fmt.Print("\r" + s)
 }
 
