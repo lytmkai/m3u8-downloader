@@ -252,7 +252,7 @@ func downloadTsFile(ts TsInfo, download_dir, key string, retries int, checkLen b
 		return
 	}
 
-	fmt.Printf("\nDownloading [%s] -> %s    ", ts.Url, curr_path_file)
+	// fmt.Printf("\nDownloading [%s] -> %s    ", ts.Url, curr_path_file)
 
 	res, err := grequests.Get(ts.Url, ro)
 	if err != nil || !res.Ok {
@@ -314,7 +314,7 @@ func downloadTsFile(ts TsInfo, download_dir, key string, retries int, checkLen b
 	if err != nil {
 		logger.Printf("[ERROR] Failed to write file %s: %v", curr_path_file, err)
 	} else {
-		fmt.Printf("\tSaved %s (%d bytes)", ts.Name, len(origData))
+		// fmt.Printf("\tSaved %s (%d bytes)       ", ts.Name, len(origData))
 	}
 }
 
