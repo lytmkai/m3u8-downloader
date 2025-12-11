@@ -11,6 +11,7 @@ import (
 	"crypto/cipher"
 	"flag"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/url"
@@ -24,13 +25,12 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/levigross/grequests"
+	
 )
 
 const (
 	// HEAD_TIMEOUT 请求头超时时间
-	HEAD_TIMEOUT = 5 * time.Second
+	HEAD_TIMEOUT = 30 * time.Second
 	// PROGRESS_WIDTH 进度条长度
 	PROGRESS_WIDTH = 20
 	// TS_NAME_TEMPLATE ts视频片段命名规则
@@ -50,19 +50,10 @@ var (
 	clFlag  = flag.Bool("checklen", true, "开启媒体文件 大小 检查(默认开启)")
 
 	logger *log.Logger
-	ro     = &grequests.RequestOptions{
-		UserAgent:      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.88 Safari/537.36",
-		RequestTimeout: HEAD_TIMEOUT,
-		Headers: map[string]string{
-			"Connection":      "keep-alive",
-			"Accept":          "*/*",
-			"Accept-Encoding": "*",
-			"Accept-Language": "zh-CN,zh;q=0.9, en;q=0.8, de;q=0.7, *;q=0.5",
-		},
-	}
+	
 )
 
-// TsInfo 用于保存 ts 文件的下载地址和文件名
+
 type TsInfo struct {
 	Name string
 	Url  string
@@ -146,6 +137,42 @@ func Run() {
 	fmt.Printf("\n[Success] 下载保存路径：%s | 共耗时: %6.2fs\n", mv, time.Now().Sub(now).Seconds())
 }
 
+func requestGet(url string) (*http.Response, error) {
+	// 创建带超时的请求
+	req, err := http.NewRequestWithContext(
+		http.Background(), // 或者传入一个带有取消信号的 context
+		http.MethodGet,
+		url,
+		nil, // GET 请求通常没有 body
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// 设置 User-Agent
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.3945.88 Safari/537.36")
+
+	// 设置其他 Headers
+	req.Header.Set("Connection", "keep-alive")
+	req.Header.Set("Accept", "*/*")
+	req.Header.Set("Accept-Encoding", "*") // 注意：服务端可能压缩响应，需要正确处理
+	req.Header.Set("Accept-Language", "zh-CN,zh;q=0.9, en;q=0.8, de;q=0.7, *;q=0.5")
+
+	// 创建 HTTP 客户端
+	client := &http.Client{
+		Timeout: HEAD_TIMEOUT,
+	}
+
+	// 执行请求
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("request failed: %w", err)
+	}
+
+	return resp, nil
+}
+
+
 // 获取m3u8地址的host
 func getHost(Url, ht string) (host string) {
 	u, err := url.Parse(Url)
@@ -161,9 +188,18 @@ func getHost(Url, ht string) (host string) {
 
 // 获取m3u8地址的内容体
 func getM3u8Body(Url string) string {
-	r, err := grequests.Get(Url, ro)
+
+	resp, err := requestGet(Url)
+	if err != nil {
+		fmt.Printf("Error making request: %v\n", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	data, err := io.ReadAll(resp.Body)
 	checkErr(err)
-	return r.String()
+	
+	return string(data)
 }
 
 // 获取m3u8加密的密钥
@@ -185,12 +221,21 @@ func getM3u8Key(host, html string) (key string) {
 			if !strings.Contains(line, "http") {
 				key_url = fmt.Sprintf("%s/%s", host, key_url)
 			}
-			res, err := grequests.Get(key_url, ro)
+
+
+
+			resp, err := requestGet(key_url)
 			checkErr(err)
-			if res.StatusCode == 200 {
-				key = res.String()
+			defer resp.Body.Close()
+			
+			if resp.StatusCode == 200 {
+				data, err := io.ReadAll(resp.Body)
+				checkErr(err)
+				key = string(data)
 				break
 			}
+
+			
 		}
 	}
 	fmt.Println("[debug] m3u8Host:",host,"m3u8Key:",key)
@@ -254,13 +299,7 @@ func downloadTsFile(ts TsInfo, download_dir, key string, retries int, checkLen b
 		return
 	}
 
-	// 创建HTTP客户端
-	client := &http.Client{
-		Timeout: 30 * time.Second,
-	}
-
-	// 发起GET请求
-	resp, err := client.Get(ts.Url)
+	resp, err := requestGet(ts.Url)
 	if err != nil {
 		fmt.Printf("[ERROR] Request failed for %s: %v\n", ts.Url, err)
 		if retries > 0 {
