@@ -142,7 +142,6 @@ func Run() {
 	}
 
 	//5、输出下载视频信息
-	DrawProgressBar("Merging", float32(1), PROGRESS_WIDTH, mv)
 	fmt.Printf("\n[Success] 下载保存路径：%s | 共耗时: %6.2fs\n", mv, time.Now().Sub(now).Seconds())
 }
 
@@ -368,17 +367,23 @@ func mergeTs(downloadDir string) string {
 		}
 		bytes, _ := ioutil.ReadFile(path)
 		_, err = writer.Write(bytes)
+
+		fmt.Print("\r Merging... " + path)
+		
 		return err
 	})
 	checkErr(err)
 	_ = writer.Flush()
+
+
+	fmt.Print("\n")
 	return mvName
 }
 
 // 进度条
 func DrawProgressBar(prefix string, proportion float32, width int, suffix ...string) {
 	pos := int(proportion * float32(width))
-	s := fmt.Sprintf("[%s] %s%*s %6.2f%% \t%s          ",
+	s := fmt.Sprintf("[%s] %s%*s %6.2f%% %-10s          ",
 		prefix, strings.Repeat("■", pos), width-pos, "", proportion*100, strings.Join(suffix, ""))
 	fmt.Print("\r" + s)
 }
