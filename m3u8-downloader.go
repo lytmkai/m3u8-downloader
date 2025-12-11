@@ -207,7 +207,8 @@ func getHost(Url, ht string) (host string) {
 // 获取m3u8地址的内容体
 func getM3u8Body(Url string) string {
 
-	resp := requestGet(Url)
+	resp, err := requestGet(Url)
+	checkErr(err)
 	defer resp.Body.Close()
 
 	data, err := io.ReadAll(resp.Body)
@@ -238,7 +239,8 @@ func getM3u8Key(host, html string) (key string) {
 
 
 
-			resp := requestGet(key_url)
+			resp, err := requestGet(key_url)
+			checkErr(err)
 			defer resp.Body.Close()
 			
 			if resp.StatusCode == 200 {
@@ -312,7 +314,8 @@ func downloadTsFile(ts TsInfo, download_dir, key string, retries int, checkLen b
 		return
 	}
 
-	resp := requestGet(ts.Url)
+	resp, err := requestGet(ts.Url)
+	checkErr(err)
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
