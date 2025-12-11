@@ -14,6 +14,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/url"
+	"net/http"
 	"os"
 	"os/exec"
 	"path"
@@ -234,63 +235,96 @@ func getFromFile() string {
 
 
 func downloadTsFile(ts TsInfo, download_dir, key string, retries int, checkLen bool) {
+	
 	if retries <= 0 {
-		logger.Printf("[ERROR] Max retries exceeded for: %s", ts.Url)
+		fmt.Printf("[ERROR] Max retries exceeded for: %s\n", ts.Url)
 		return
 	}
 
 	defer func() {
 		if r := recover(); r != nil {
-			logger.Printf("[WARN] Panic during download (retrying): %v for %s", r, ts.Url)
+			fmt.Printf("[WARN] Panic during download (retrying): %v for %s\n", r, ts.Url)
 			downloadTsFile(ts, download_dir, key, retries-1, checkLen)
 		}
 	}()
 
-	curr_path_file := fmt.Sprintf("%s/%s", download_dir, ts.Name)
+	curr_path_file := filepath.Join(download_dir, ts.Name)
 	if isExist, _ := pathExists(curr_path_file); isExist {
-		logger.Printf("[WARN] File already exists, skipping: %s", curr_path_file)
+		fmt.Printf("[WARN] File already exists, skipping: %s\n", curr_path_file)
 		return
 	}
 
-	// fmt.Printf("\nDownloading [%s] -> %s    ", ts.Url, curr_path_file)
+	// 创建HTTP客户端
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
 
-	res, err := grequests.Get(ts.Url, ro)
-	if err != nil || !res.Ok {
-		logger.Printf("[ERROR] Request failed for %s: err=%v, ok=%v", ts.Url, err, res.Ok)
+	// 发起GET请求
+	resp, err := client.Get(ts.Url)
+	if err != nil {
+		fmt.Printf("[ERROR] Request failed for %s: %v\n", ts.Url, err)
 		if retries > 0 {
-			logger.Printf("[INFO] Retrying... (%d left)", retries-1)
+			fmt.Printf("[INFO] Retrying... (%d left)\n", retries-1)
+			time.Sleep(time.Second) // 稍微延迟后重试
+			downloadTsFile(ts, download_dir, key, retries-1, checkLen)
+		}
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		fmt.Printf("[ERROR] Request failed for %s: status code %d\n", ts.Url, resp.StatusCode)
+		if retries > 0 {
+			fmt.Printf("[INFO] Retrying... (%d left)\n", retries-1)
+			time.Sleep(time.Second)
 			downloadTsFile(ts, download_dir, key, retries-1, checkLen)
 		}
 		return
 	}
 
-	var origData []byte
-	origData = res.Bytes()
+	// 读取响应体
+	origData, err := io.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Printf("[ERROR] Failed to read response body for %s: %v\n", ts.Url, err)
+		if retries > 0 {
+			fmt.Printf("[INFO] Retrying... (%d left)\n", retries-1)
+			time.Sleep(time.Second)
+			downloadTsFile(ts, download_dir, key, retries-1, checkLen)
+		}
+		return
+	}
+
 	contentLen := 0
-	contentLenStr := res.Header.Get("Content-Length")
+	contentLenStr := resp.Header.Get("Content-Length")
 	if contentLenStr != "" {
 		contentLen, _ = strconv.Atoi(contentLenStr)
 	}
 
 	// 校验长度是否合法
 	if checkLen {
-		if len(origData) == 0 || (contentLen > 0 && len(origData) < contentLen) || res.Error != nil {
+		if len(origData) == 0 || (contentLen > 0 && len(origData) < contentLen) {
 			fmt.Printf("\n")
-			logger.Printf("[WARN] Invalid response data for %s: len=%d, content-length=%d, error=%v",
-				ts.Url, len(origData), contentLen, res.Error)
-			downloadTsFile(ts, download_dir, key, retries-1, checkLen)
+			fmt.Printf("[WARN] Invalid response data for %s: len=%d, content-length=%d\n",
+				ts.Url, len(origData), contentLen)
+			if retries > 0 {
+				time.Sleep(time.Second)
+				downloadTsFile(ts, download_dir, key, retries-1, checkLen)
+			}
 			return
 		}
 	}
 
 	// 解密出视频 ts 源文件
 	if key != "" {
-		logger.Printf("[DEBUG] Decrypting segment: %s", ts.Name)
+		fmt.Printf("[DEBUG] Decrypting segment: %s\n", ts.Name)
 		var err error
 		origData, err = AesDecrypt(origData, []byte(key))
 		if err != nil {
-			logger.Printf("[ERROR] Decryption failed for %s: %v", ts.Name, err)
-			downloadTsFile(ts, download_dir, key, retries-1, checkLen)
+			fmt.Printf("[ERROR] Decryption failed for %s: %v\n", ts.Name, err)
+			if retries > 0 {
+				time.Sleep(time.Second)
+				downloadTsFile(ts, download_dir, key, retries-1, checkLen)
+			}
 			return
 		}
 	}
@@ -306,16 +340,17 @@ func downloadTsFile(ts TsInfo, download_dir, key string, retries int, checkLen b
 		}
 	}
 	if origStart > 0 {
-		logger.Printf("[DEBUG] Trimmed %d bytes before SyncByte in %s", origStart, ts.Name)
+		fmt.Printf("[DEBUG] Trimmed %d bytes before SyncByte in %s\n", origStart, ts.Name)
 	}
 	origData = origData[origStart:]
 
 	err = ioutil.WriteFile(curr_path_file, origData, 0666)
 	if err != nil {
-		logger.Printf("[ERROR] Failed to write file %s: %v", curr_path_file, err)
+		fmt.Printf("[ERROR] Failed to write file %s: %v\n", curr_path_file, err)
 	} else {
-		fmt.Printf("\tSaved %s (%d bytes)       ", ts.Name, len(origData))
+		// fmt.Printf("\tSaved %s (%d bytes)       \n", ts.Name, len(origData))
 	}
+	
 }
 
 // downloader m3u8 下载器
