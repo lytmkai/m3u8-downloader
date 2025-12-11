@@ -368,7 +368,7 @@ func mergeTs(downloadDir string) string {
 		bytes, _ := ioutil.ReadFile(path)
 		_, err = writer.Write(bytes)
 
-		fmt.Print("\r Merging... " + path)
+		fmt.Print("\r\033[K Merging... " + path)
 		
 		return err
 	})
@@ -386,9 +386,9 @@ func DrawProgressBar(prefix string, proportion float32, total float32, width int
 	percent := proportion / total
 	
 	pos := int(percent * float32(width))
-	s := fmt.Sprintf("[%s] %s%*s %6.2f%%  %6f/%6f   %-15s          ",
+	s := fmt.Sprintf("[%s] %s%*s %6.2f%%  %6.0f/%6.0f  %-15s ",
 		prefix, strings.Repeat("■", pos), width-pos, "", percent*100, proportion, total, strings.Join(suffix, ""))
-	fmt.Print("\r" + s)
+	fmt.Print("\r\033[K" + s)
 }
 
 // ============================== shell相关 ==============================
