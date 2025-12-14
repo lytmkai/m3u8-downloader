@@ -449,7 +449,7 @@ func mergeTs(downloadDir string) string {
 		bytes, _ := ioutil.ReadFile(path)
 		_, err = writer.Write(bytes)
 
-		fmt.Print("\r\033[K Merging... " + path)
+		fmt.Printf("\r\n Merging... " + path)
 		
 		return err
 	})
