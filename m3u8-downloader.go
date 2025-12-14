@@ -469,7 +469,7 @@ func DrawProgressBar(prefix string, proportion float32, total float32, width int
 	pos := int(percent * float32(width))
 	s := fmt.Sprintf("[%s] %s%*s %6.2f%%  %d/%d    %-15s ",
 		prefix, strings.Repeat("■", pos), width-pos, "", percent*100, int(proportion), int(total), strings.Join(suffix, ""))
-	fmt.Print("\r\033[K" + s)
+	fmt.Print("\r\033[2K" + s)
 }
 
 // ============================== shell相关 ==============================
