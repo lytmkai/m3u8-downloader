@@ -439,6 +439,8 @@ func mergeTs(downloadDir string) string {
 	outMv, _ := os.Create(mvName)
 	defer outMv.Close()
 	writer := bufio.NewWriter(outMv)
+
+	fmt.Print("\n")
 	err := filepath.Walk(downloadDir, func(path string, f os.FileInfo, err error) error {
 		if f == nil {
 			return err
@@ -449,15 +451,15 @@ func mergeTs(downloadDir string) string {
 		bytes, _ := ioutil.ReadFile(path)
 		_, err = writer.Write(bytes)
 
-		fmt.Printf("\r\n Merging... " + path)
+		fmt.Printf("\r\033[2K Merging... " + path)
 		
 		return err
 	})
 	checkErr(err)
 	_ = writer.Flush()
 
-
 	fmt.Print("\n")
+	
 	return mvName
 }
 
